@@ -1,0 +1,14 @@
+{
+  "excel_path": "E:/AI/成绩/成绩表.xlsx",
+  "sheet_name": "",
+  "score_item": "第一单元",
+  "min_score": 0,
+  "max_score": 100,
+  "auto_save": true,
+  "activate_excel": true,
+  "select_cell": true,
+  "excel_visible": true,
+  "asr_engine": "text",
+  "vad_enabled": true,
+  "sample_rate": 16000
+}

@@ -1,0 +1,29 @@
+# Local data and sensitive student records
+成绩表.xlsx
+*.xls
+*.xlsm
+*.xlsx
+
+# Runtime configuration may contain local paths
+config.local.json
+
+# Python generated files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs and local verification output
+logs/
+*.log
+
+# Virtual environments and generated distribution artifacts
+.venv/
+venv/
+env/
+dist/
+
+# IDE / OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
