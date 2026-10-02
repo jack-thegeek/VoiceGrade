@@ -21,6 +21,10 @@ logs/
 venv/
 env/
 dist/
+# PyInstaller 中间产物（spec 与 build.bat 保留在 build/ 下）
+build/*/
+build/*.toc
+build/*.pyz
 
 # IDE / OS files
 .idea/

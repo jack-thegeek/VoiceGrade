@@ -5,11 +5,16 @@ xlwings>=0.30
 numpy>=1.24
 sounddevice>=0.4
 
+# Windows 自带语音识别（WinRT 桥接，体积很小，默认引擎）
+winrt-Windows.Media.SpeechRecognition>=3.0
+winrt-Windows.Globalization>=3.0
+
 # 可选：本地语音识别（体积较大，按需安装）
 # 方案 A：FunASR（Paraformer，中文普通话，本地）
 #   pip install funasr modelscope torch torchaudio
 # 方案 B：轻量本地引擎（sherpa-onnx）
 #   pip install sherpa-onnx
 #
-# 说明：MVP 默认使用“文本模拟”引擎，无需安装 ASR 依赖即可跑通
+# 说明：默认引擎为 winrt（Windows 10/11 自带中文识别）；
+# 依赖缺失时自动回退到“文本模拟”引擎，仍可跑通
 # “文字命令 -> 解析 -> Excel 实时修改”完整链路。

@@ -8,7 +8,7 @@
   "activate_excel": true,
   "select_cell": true,
   "excel_visible": true,
-  "asr_engine": "text",
+  "asr_engine": "winrt",
   "vad_enabled": true,
   "sample_rate": 16000
 }

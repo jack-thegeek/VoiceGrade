@@ -97,6 +97,9 @@ class MainWindow(QMainWindow):
         self._status_label = QLabel("未连接")
         top.addWidget(self._status_dot)
         top.addWidget(self._status_label)
+        self._engine_label = QLabel(f"引擎：{self.controller.engine_name}")
+        self._engine_label.setStyleSheet("color:#7f8c8d;")
+        top.addWidget(self._engine_label)
         top.addStretch(1)
         sl.addLayout(top)
 
@@ -105,8 +108,13 @@ class MainWindow(QMainWindow):
         sl.addWidget(self._recognized_label)
         root.addWidget(status_box)
 
-        # 文本模拟输入
-        sim_box = QGroupBox("命令输入（模拟语音）")
+        # 文本模拟输入（推模式引擎下作为手动补录通道）
+        engine_name = self.controller.engine_name
+        if self.controller.engine.name == "text":
+            title = "命令输入（模拟语音）"
+        else:
+            title = f"命令输入（手动补录 · 引擎：{engine_name}）"
+        sim_box = QGroupBox(title)
         il = QHBoxLayout(sim_box)
         self._input_edit = QLineEdit()
         self._input_edit.setPlaceholderText("例如：1号，100减2减8减10")

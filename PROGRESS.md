@@ -101,3 +101,58 @@ PySide6 6.11.2 / xlwings 0.37.5 / numpy 2.5.3 / sounddevice 0.5.6 / pywin32 312 
 
 MVP 核心链路（文本命令 → 解析 → 计算 → Excel 实时修改 → 撤销/历史/错误处理）
 已全部实现并本机验证通过。真实语音识别（FunASR/VAD）已预留可插拔接口，可后续接入。
+
+---
+
+## 接入 Windows 自带语音识别（2026-10-02/03）
+
+### 方案
+
+- 新增 `asr/winrt_engine.py`：`WinRTSpeechEngine`，调用 Windows 10/11 内置
+  `Windows.Media.SpeechRecognition`（zh-CN 普通话），免费、无需下载模型。
+- 依赖（轻量）：`pip install winrt-Windows.Media.SpeechRecognition winrt-Windows.Globalization`
+  （已加入 `requirements.txt`，本机安装 winrt 3.2.1 ✅）
+- `config.json` 默认 `asr_engine = "winrt"`；依赖缺失自动回退文本模拟并界面提示。
+
+### 架构要点
+
+- WinRT 为**推模式**（自行管理麦克风与静音切分）：基类新增
+  `set_text_handler()/start()/stop()`，识别整句后回调
+  `controller.submit_text()` 进入统一命令链路（不使用 `audio/` 采集与 VAD）。
+- 引擎在独立后台线程跑 asyncio 事件循环；WinRT 事件回调线程 → Qt 信号
+  跨线程投递（GUI 冒烟验证通过）。
+- 持续会话因静音超时等意外结束（completed 事件）时**自动重启**，保证持续监听；
+  初始静音超时放宽至 60 秒减少无谓重启。
+- UI：状态区显示「引擎：Windows 自带识别」，输入框分组改为
+  「命令输入（手动补录 · 引擎：…）」。
+
+### 关键修复：winrt 与 PySide6 的 DLL 冲突
+
+- 现象：进程内 **先 `import winrt`、后 `import PySide6.QtCore` → 0xC0000005 崩溃**
+  （分段实验 D1~D4 定位；winrt 自带 `winrt\msvcp140.dll` 与 Qt 运行库冲突）。
+- 修复：`asr/winrt_engine.py` 的 `_load_winrt()`（项目内唯一加载 winrt 的入口）
+  强制先 `import PySide6.QtCore` 再加载 winrt；`main.py` 本身也满足该顺序。
+- 约束已写入 README「已知约束」；勿在项目外先行 `import winrt`。
+
+### 验证
+
+- 单元测试：`python -m unittest discover -s tests` → **30 个全部通过**
+  （新增 `tests/test_winrt_engine.py`：注入假 WinRT，覆盖生命周期、文本回调、
+  意外完成自动重启、停止后不重启、启动失败抛错、重启可重复，不访问真实麦克风）。
+- 真实引擎冒烟：构造 / 约束编译 / 事件订阅 / start-stop ✅（status 枚举为
+  `SpeechRecognitionResultStatus`，5=USER_CANCELED、7=TIMEOUT_EXCEEDED）。
+- GUI 冒烟（真实 MainWindow + 事件循环）：引擎标签、监听状态、
+  跨线程 recognized 信号到达 GUI、暂停/退出全部正常 ✅。
+- PyInstaller spec 已补充 `collect_all("winrt")` 收集原生 pyd 与 msvcp140.dll；
+  同时修复 spec 内相对路径被解析到 `build/` 目录的问题（改用 `SPECPATH` 推导根目录）。
+- 重新打包成功（`BUILD_EXIT=0`，`dist/成绩语音录入系统/`），确认
+  `_internal/winrt/` 下 4 个原生 pyd + `msvcp140.dll` + Python 模块均已收集，
+  打包 exe 启动 6 秒存活无崩溃。
+- 新增 `scripts/check_voice.py` 麦克风自检脚本（人声实测入口）。
+
+### 待办
+
+- [x] 接入 Windows 自带（WinRT）中文语音识别
+- [x] PyInstaller 重新打包并验证 exe 可启动
+- [ ] 真人对麦克风说出命令的实测（`python scripts/check_voice.py`；本机自动化无法代替人声）
+- [ ] （可选）接入 FunASR 真实语音识别

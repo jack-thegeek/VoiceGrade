@@ -18,7 +18,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "activate_excel": True,
     "select_cell": True,
     "excel_visible": True,
-    "asr_engine": "text",       # text | funasr | sherpa-onnx
+    "asr_engine": "winrt",     # winrt（Windows 自带）| text | funasr
     "vad_enabled": True,
     "sample_rate": 16000,
 }

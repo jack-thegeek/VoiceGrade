@@ -13,6 +13,7 @@ from typing import Optional
 
 from PySide6.QtCore import QObject, QThread, Signal
 
+from asr import BaseASREngine, create_engine
 from excel.excel_adapter import ExcelAdapter, ExcelAdapterError
 from history.history_manager import HistoryManager
 from models.command import HistoryItem, ParsedCommand
@@ -240,16 +241,46 @@ class ScoreVoiceController(QObject):
         self._worker.sig_error.connect(self._on_worker_error)
         self._worker.sig_structure.connect(self._on_structure)
 
+        # ASR 引擎（配置指定；缺失依赖时自动回退到文本模拟）
+        self._engine_fallback: Optional[str] = None
+        self.engine: BaseASREngine = self._create_engine()
+
         # 听写状态（文本模拟模式下主要控制界面指示）
         self._listening = False
+
+    def _create_engine(self) -> BaseASREngine:
+        name = self._config.get("asr_engine", "text")
+        try:
+            engine = create_engine(name)
+        except Exception as e:  # noqa: BLE001
+            log.warning("创建 ASR 引擎 %r 失败（%s），回退到文本模拟", name, e)
+            self._engine_fallback = str(e)
+            engine = create_engine("text")
+        # 识别文本 -> 统一命令处理链路（回调来自引擎线程，Qt 信号自动跨线程投递）
+        engine.set_text_handler(self.submit_text)
+        log.info("ASR 引擎：%s（%s）", engine.name, engine.display_name)
+        return engine
 
     # ---------------- 生命周期 ----------------
     def start(self) -> None:
         self._worker.start()
+        # 引擎创建时若发生回退，此刻 GUI 信号已接通，补发一次提示
+        if self._engine_fallback:
+            msg, self._engine_fallback = self._engine_fallback, None
+            self.error.emit(f"语音识别回退到文本模拟：{msg}")
 
     def shutdown(self) -> None:
+        try:
+            self.engine.shutdown()
+        except Exception:  # noqa: BLE001
+            log.exception("关闭 ASR 引擎异常")
         self._worker.stop()
         self._worker.wait(3000)
+
+    @property
+    def engine_name(self) -> str:
+        """当前引擎的界面显示名。"""
+        return self.engine.display_name
 
     # ---------------- Excel ----------------
     def open_excel(self, path: str, sheet_name: Optional[str] = None) -> None:
@@ -283,15 +314,32 @@ class ScoreVoiceController(QObject):
 
     # ---------------- 听写状态 ----------------
     def start_listening(self) -> None:
-        self._listening = True
+        if not self._listening:
+            try:
+                self.engine.start()
+            except Exception as e:  # noqa: BLE001
+                log.error("启动语音识别失败：%s", e)
+                self.error.emit(f"启动语音识别失败：{e}")
+                return
+            self._listening = True
         self.status_changed.emit("正在监听")
 
     def pause_listening(self) -> None:
-        self._listening = False
+        if self._listening:
+            try:
+                self.engine.stop()
+            except Exception:  # noqa: BLE001
+                log.exception("停止语音识别异常")
+            self._listening = False
         self.status_changed.emit("已暂停")
 
     def stop_listening(self) -> None:
-        self._listening = False
+        if self._listening:
+            try:
+                self.engine.stop()
+            except Exception:  # noqa: BLE001
+                log.exception("停止语音识别异常")
+            self._listening = False
         self.status_changed.emit("未监听")
 
     @property

@@ -12,6 +12,7 @@ from .engine import BaseASREngine
 
 class FunASREngine(BaseASREngine):
     name = "funasr"
+    display_name = "FunASR 本地识别"
 
     def __init__(self, model: str = "paraformer-zh") -> None:
         try:

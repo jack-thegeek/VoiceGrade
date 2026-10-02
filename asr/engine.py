@@ -9,9 +9,29 @@ import numpy as np
 
 
 class BaseASREngine:
-    """ASR 引擎基类。"""
+    """ASR 引擎基类。
+
+    两类引擎：
+    - 拉模式：实现 transcribe(audio, sample_rate)，由调用方喂音频；
+    - 推模式：实现 start()/stop()，识别文本经 set_text_handler 注册的
+      回调主动送出（如 Windows 自带 WinRT 识别）。
+    """
 
     name = "base"
+    display_name = "未知引擎"
+
+    # 文本回调（推模式引擎使用）；类属性避免子类 __init__ 忘记调用 super()
+    _handler = None
+
+    def set_text_handler(self, handler) -> None:
+        """注册识别文本回调 handler(text)。"""
+        self._handler = handler
+
+    def start(self) -> None:
+        """推模式：启动识别；拉模式引擎为空实现。"""
+
+    def stop(self) -> None:
+        """推模式：停止识别；拉模式引擎为空实现。"""
 
     def transcribe(self, audio: np.ndarray, sample_rate: int) -> str:
         raise NotImplementedError
@@ -31,6 +51,7 @@ class TextASREngine(BaseASREngine):
     """
 
     name = "text"
+    display_name = "文本模拟"
 
     def transcribe(self, audio: np.ndarray, sample_rate: int) -> str:  # noqa: ARG002
         return ""
@@ -45,6 +66,10 @@ def create_engine(engine_name: str, **kwargs) -> BaseASREngine:
         from .funasr_engine import FunASREngine
 
         return FunASREngine(**kwargs)
+    if engine_name in ("winrt", "windows"):
+        from .winrt_engine import WinRTSpeechEngine
+
+        return WinRTSpeechEngine(**kwargs)
     raise ValueError(f"未知的 ASR 引擎：{engine_name}")
 
 
